@@ -74,6 +74,12 @@
    * HAS_dos_read        - dos_read() presents or defined here
    * HAS_popen_close     - popen(); pclose() ("pipe open" and "pipe close")
    * HAS_strupr		 - strupr() presents
+   * HAS_strcasecmp      - strcasecmp()   usualy in <string.h>
+   * HAS_strncasecmp     - strncasecmp()  usualy in <string.h>
+   * HAS_stricmp         - stricmp()   eq strcasecmp()
+   * HAS_strnicmp        - strnicmp()  eq strncasecmp()
+   * HAS_strlwr          - strlwr()   lower string (string.h)
+   * HAS_strupr          - strupr()   upper string (string.h)
    *
    * HAS_MALLOC_H        - may be used "#include <malloc.h>" for malloc() etc.
    * HAS_DOS_H           - may be used "#include <dos.h>"
@@ -204,10 +210,13 @@
    ===================================================================
    DJGPP (DOS DPMI)                          (GNU C clone)
    -------------------------------------------------------------------
-    __DJGPP__ MSDOS __MSDOS__  __GNUC__  __STDC__
+    __DJGPP__ __DJGPP DJGPP MSDOS __MSDOS__  __GNUC__  __STDC__
+    __unix__  unix  __i386__
    Some values:
    __GNUC__=3 (0x3); __GNUC_MINOR__=2 (0x2)
    __VERSION__=3.2
+   __DJGPP__ =__DJGPP =DJGPP  =2
+   DJGPP_MINOR = __DJGPP_MINOR =__DJGPP_MINOR__ =3
    ===================================================================
    EMX (OS/2)                                (GNU C clone)
    -------------------------------------------------------------------
@@ -234,9 +243,15 @@
    -------------------------------------------------------------------
    __sun__
    ===================================================================
-   GNU C on BeOS
+   GNU C on BeOS 5
    -------------------------------------------------------------------
-   __BeOS__
+   __BEOS__ __i386__ _X86_ __i386 i386  __ELF__ __INTEL__ __PIC__ __pic__
+   Values:
+   __declspec(x) __attribute__((x))
+   __cdecl __attribute__((__cdecl__))
+   __stdcall __attribute__((__stdcall__))
+   intel pentium specific defines:
+    __pentium__ __i586__  i586 __i586 __pentium pentium
    ===================================================================
 
    ===================================================================
@@ -710,8 +725,15 @@ int qq(void)
 #  endif
 #endif
 
-#if defined(UNIX) || defined(_UNIX) || defined(__unix) || defined(__unix__)
-#  if !defined(__UNIX__)
+#if defined(UNIX) || defined(_UNIX) || defined(__unix) || defined(__unix__) ||  defined(unix)
+#  ifdef __DJGPP__
+#    undef __UNIX__
+#    undef UNIX
+#    undef _UNIX
+#    undef __unix__
+#    undef unix
+#  endif
+#  ifndef __UNIX__
 #    define __UNIX__
 #  endif
 #endif
@@ -936,12 +958,11 @@ int qq(void)
 #  endif
 
   /*
-   *  Code is really "near", but "far" in this context means that we
-   *  want a 32-bit pointer (vice 16-bit).
+   *  Code is really "near"
    */
 
-#  define __FARCODE__
-#  define __FARDATA__
+#  undef __FARCODE__
+#  undef __FARDATA__
 
 /* Everything should be "near" in the flat model */
 
@@ -952,12 +973,12 @@ int qq(void)
 
 #  ifdef far
 #    undef far
-#    define far near
+#    define far
 #  endif
 
 #  ifdef huge
 #    undef huge
-#    define huge near
+#    define huge
 #  endif
 
 #endif  /* ifdef __FLAT__ */
@@ -1156,6 +1177,16 @@ int qq(void)
 #    define _fast _fastcall
 #  else
 #    define _fast pascal
+#  endif
+
+#  define farmalloc(n)    _fmalloc(n)
+#  define farfree(p)      _ffree(p)
+#  define farrealloc(p,n) _frealloc(p,n)
+
+#  if _MSC_VER >= 600
+#    define farcalloc(a,b) _fcalloc(a,b)
+#  else
+     void far *farcalloc(int n, int m);
 #  endif
 
   int unlock(int handle, long ofs, long length);
@@ -1653,7 +1684,82 @@ int qq(void)
 #  define HAS_PROCESS_H   /* may use "#include <process.h> */
 
 /* End: IBM C/Set++ for OS/2 */
-#elif defined(__UNIX__) /* Unix clones: Linux, FreeBSD, SUNOS (Solaris), BeOS, MacOS etc. */
+#elif defined(__BEOS__)    /* BeOS (Unix clone, GNU C) */
+
+#  define _XPENTRY
+#  define SMAPI_EXT extern
+#  define _intr
+#  define _intcast
+#  define _veccast
+#  define _fast
+#  define _loadds
+#  ifndef _stdc
+#    define _stdc     /*__stdcall*/ /* produce compiler warnings */
+#  endif
+#  ifndef cdecl
+#    define cdecl     __cdecl
+#  endif
+
+#  define pascal
+#  define near
+#  undef  far
+#  define far
+
+#  define farread read
+#  define farwrite write
+
+#  define mymkdir(a) mkdir((a), S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH)
+
+   int lock(int handle, long ofs, long length);   /* in locking.c */
+   int unlock(int handle, long ofs, long length);
+   int sopen(const char *name, int oflag, int ishared, int mode);
+
+#  define tell(a) lseek((a),0,SEEK_CUR)
+
+#  include <fcntl.h>
+
+#  ifndef SH_DENYNONE
+#    define SH_DENYNONE 0
+#  endif
+#  ifndef SH_DENYNO
+#    define SH_DENYNO 0
+#  endif
+#  ifndef SH_DENYALL
+#    define SH_DENYALL 1
+#  endif
+
+#  define mysleep(x) snooze(x*1000000l)
+#  define sleep(x) snooze(x*1000000l)
+#  define HAS_sleep     1
+#  define HAS_mktime	1  /* in <time.h> */
+#  define HAS_strftime	1  /* in <time.h> */
+#  define HAS_snprintf  1
+#  define HAS_vsnprintf 1
+#  define HAS_popen_close 1 /* popen(); pclose() */
+#  define HAS_strcasecmp  1
+#  define HAS_strncasecmp 1
+#  define HAS_strlwr      1
+#  define HAS_strupr      1
+
+#  define stricmp(s1,s2) strcasecmp(s1,s2)
+#  define strnicmp(s1,s2,z) strncasecmp(s1,s2,z)
+
+#  define HAS_DIRENT_H         1  /* <dirent.h> */
+#  define HAS_UNISTD_H         1  /* ? unistd.h conflicts with be/kernel/OS.h ? */
+#  define HAS_PWD_H            1  /* <pwd.h> */
+#  define HAS_GRP_H            1  /* may be used "#include <grp.h>" */
+#  define HAS_SIGNAL_H         1  /* <signal.h> */
+#  define USE_STAT_MACROS      1
+#  define HAS_SYS_PARAM_H      1
+#  define HAS_SYS_SYSEXITS_H   1  /*  <sys/sysexits.h> */
+#  define HAS_SYS_WAIT_H       1  /* <sys/wait.h> */
+#  define HAS_SYS_STATVFS_H    1
+
+/* END: BeOS (Unix clone, GNU C) */
+
+#elif defined(__UNIX__) && !defined(__BEOS__)
+/* Unix clones: Linux, FreeBSD, SUNOS (Solaris), MacOS etc. */
+
 #  define SMAPI_EXT extern
 #  define _stdc
 #  define _intr
@@ -1671,7 +1777,7 @@ int qq(void)
 #  define farread read
 #  define farwrite write
 
-#  if (defined(__APPLE__) && defined(__MACH__)) || defined(__NetBSD__) || defined(__FreeBSD__) || defined(_AIX) || defined(__SUN__) || defined(__LINUX__) || defined(__osf__) || defined(__hpux) || defined(__BEOS__) || defined(__OpenBSD__) || defined(__CYGWIN__)
+#  if (defined(__APPLE__) && defined(__MACH__)) || defined(__NetBSD__) || defined(__FreeBSD__) || defined(_AIX) || defined(__SUN__) || defined(__LINUX__) || defined(__osf__) || defined(__hpux) || defined(__OpenBSD__) || defined(__CYGWIN__)
 #    define mymkdir(a) mkdir((a), S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH)
 #  else
 #    define mymkdir(a) __mkdir((a), S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH)
@@ -1692,39 +1798,31 @@ int qq(void)
 #    define strnicmp strncasecmp
 #  endif
 
-#if !defined(USG)
-#define HAS_SYS_PARAM_H
-#endif
+#  if !defined(USG)
+#  define HAS_SYS_PARAM_H
+#  endif
 
-#if (defined(BSD) && (BSD >= 199103))
-  /* now we can be sure we are on BSD 4.4 */
-#define HAS_SYS_MOUNT_H
-#endif
-  /* we are not on any BSD-like OS */
-  /* list other UNIX os'es without getfree mechanism here */
-#if defined( __svr4__ ) || defined( __SVR4 ) || defined (__linux__) && defined (__GLIBC__)
-#define HAS_SYS_STATVFS_H
-#if !defined (__BEOS__)  /* Strange... BeOS is not SVR4, and not linux*/
-#define HAS_SYS_VFS_H
-#endif
-#endif
+#  if (defined(BSD) && (BSD >= 199103))
+    /* now we can be sure we are on BSD 4.4 */
+#  define HAS_SYS_MOUNT_H
+#  endif
+    /* we are not on any BSD-like OS */
+    /* list other UNIX os'es without getfree mechanism here */
+#  if defined( __svr4__ ) || defined( __SVR4 ) || defined (__linux__) && defined (__GLIBC__)
+#  define HAS_SYS_STATVFS_H
+#  endif
 
-#if defined (__LINUX__) && !defined(__GLIBC__)
-#define HAS_SYS_VFS_H
-#endif
+#  if defined (__LINUX__) && !defined(__GLIBC__)
+#  define HAS_SYS_VFS_H
+#  endif
 
+#  include <fcntl.h>
+#  ifndef O_BINARY
+#   define O_BINARY 0 /* O_BINARY flag has no effect under UNIX */
+#  endif
 
-/* Cygwin defines O_BINARY in sys/fcntl.h. */
-#  if !defined(__BEOS__) && !defined(__CYGWIN__)
-#    include <fcntl.h>
-#    ifndef O_BINARY
-#      define O_BINARY 0
-#    endif
-#  else
-#    include <fcntl.h>
-#    ifndef O_BINARY
-#      define O_BINARY 0
-#    endif
+#  ifndef O_TEXT
+#   define O_TEXT   0 /* O_TEXT flag has no effect under UNIX */
 #  endif
 
 #  ifndef SH_DENYNONE
@@ -1741,12 +1839,7 @@ int qq(void)
 
 /* Other OS's may sleep with other functions */
 
-#  ifdef __BEOS__
-#    define mysleep(x) snooze(x*1000000l)
-#    define sleep(x) snooze(x*1000000l)
-#    define HAS_sleep     1
-#    define HAS_SYS_SYSEXITS_H     1  /*  <sys/sysexits.h> */
-#  elif defined(__SUN__)
+#  if defined(__SUN__)
 #    define mysleep(x) usleep(x*1000000l)
 #    define sleep(x)   usleep(x*1000000l)
 #    define HAS_sleep     1
@@ -1760,24 +1853,13 @@ int qq(void)
 #    define HAS_vsnprintf 1
 #  endif
 
-#  ifndef __BEOS__
-#    define HAS_SYSEXITS_H     1  /*  <sysexits.h> */
-#  endif
+#  define HAS_SYSEXITS_H       1  /*  <sysexits.h> */
 #  define HAS_UNISTD_H         1  /* <unistd.h> */
 #  define HAS_PWD_H            1  /* <pwd.h> */
 #  define HAS_GRP_H            1  /* may be used "#include <grp.h>" */
 #  define HAS_SIGNAL_H         1  /* <signal.h> */
 #  define HAS_SYS_WAIT_H       1  /* <sys/wait.h> */
 #  define USE_STAT_MACROS
-
-#include <fcntl.h>
-#ifndef O_BINARY
-# define O_BINARY 0 /* O_BINARY flag has no effect under UNIX */
-#endif
-
-#ifndef O_TEXT
-# define O_TEXT   0 /* O_TEXT flag has no effect under UNIX */
-#endif
 
 #if defined(__LINUX__) || defined(__BSD__) || defined(__CYGWIN__)
 #  define HAS_mktime	/* <time.h> */
@@ -1840,6 +1922,42 @@ int qq(void)
 #endif   /* End compiler-specific decrarations */
 
 /**** Test defines and/or set default values *********************************/
+
+#if defined(__FLAT__)      /* 32 bit or 64 bit  = moved from smapi/prog.h */
+
+  #define farcalloc  calloc
+  #define farmalloc  malloc
+  #define farrealloc realloc
+  #define farfree    free
+  #define _fmalloc   malloc
+
+#elif defined(__FARDATA__)  /* 16 bit (possible obsolete?) - moved from smapi/prog.h */
+
+  #define malloc(n)     farmalloc(n)
+  #define calloc(n,u)   farcalloc(n,u)
+  #define free(p)       farfree(p)
+  #define realloc(p,n)  farrealloc(p,n)
+
+#endif /* defined(__FARDATA__) */
+
+/* Default separator for path specification */
+
+#ifndef PATH_DELIM   /* moved from smapi/prog.h */
+ #if defined(__UNIX__) || defined(__AMIGA__)
+  #define PATH_DELIM  '/'
+ #else
+  #define PATH_DELIM  '\\'
+ #endif
+#endif
+
+#ifndef PATHLEN
+ #ifdef MAXPATHLEN
+  #define PATHLEN   MAXPATHLEN
+ #else                    /* moved from smapi/prog.h */ /* OS-depended vallue! */
+  #define PATHLEN   120   /* Max. length of path */
+ #endif
+#endif
+
 
 #ifdef HAS_SHARE_H
 #  include <share.h>
