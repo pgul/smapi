@@ -86,8 +86,8 @@ typedef NETADDR *PNETADDR;
 typedef dword UMSGID;
 
 #define MSGAPI_VERSION    2
-#define MSGAPI_SUBVERSION 0x230
-#define SMAPI_VERSION   "2.3.0"
+#define MSGAPI_SUBVERSION 0x240
+#define SMAPI_VERSION   "2.4.0"
 
 struct _minf
 {
@@ -417,12 +417,23 @@ SMAPI_EXT void _XPENTRY RemoveFromCtrl(byte * ctrl, byte * what);
 SMAPI_EXT dword _XPENTRY GenMsgId(char *seqdir, unsigned long max_outrun);
 SMAPI_EXT dword _XPENTRY GenMsgIdEx(char *seqdir, unsigned long max_outrun, dword (*altGenMsgId)(void), char **errstr);
 
+/* Check version of fidoconfig library
+ * return zero if test passed
+ * test cvs need for DLL version only, using #include <smapi/cvsdate.h>
+  const char *smapidate(){
+  static const
+  #include "../smapi/cvsdate.h"
+  return cvs_date;
+  }
+  CheckSmapiVersion( ..., smapidate());
+ */
 SMAPI_EXT int _XPENTRY CheckSmapiVersion( int need_major, int need_minor,
                 	    int need_patch, const char *cvs_date_string );
 
 /*  Return MSGAPI error text (string constant).
  */
 SMAPI_EXT char * _XPENTRY  strmerr(int msgapierr);
+
 
 #if !defined(__OS2__) && !defined(__FLAT__) && !defined(__UNIX__) && !defined(__NT__)
 #ifndef farread
